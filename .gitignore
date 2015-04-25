@@ -1,4 +1,5 @@
 thrift_line
 *.o
+*.a
 libline.so
 .depend

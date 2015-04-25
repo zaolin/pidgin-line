@@ -236,11 +236,12 @@ purple_socket_connect(PurpleSocket *ps, PurpleSocketConnectCb cb,
 
 	g_return_val_if_fail(ps != NULL, FALSE);
 
-	if (ps->gc && purple_connection_is_disconnecting(ps->gc)) {
+    /* BACKPORTS: commented out feature relying on unimplemented API */
+	/* if (ps->gc && purple_connection_is_disconnecting(ps->gc)) {
 		purple_debug_error("socket", "connection is being destroyed");
 		ps->state = PURPLE_SOCKET_STATE_ERROR;
 		return FALSE;
-	}
+	}*/
 
 	if (!purple_socket_check_state(ps, PURPLE_SOCKET_STATE_DISCONNECTED))
 		return FALSE;
