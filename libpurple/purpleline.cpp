@@ -48,11 +48,11 @@ PurpleLine::PurpleLine(PurpleConnection *conn, PurpleAccount *acct) :
     pin_verifier(*this),
     next_purple_id(1)
 {
-    c_out = boost::make_shared<ThriftClient>(acct, conn, LINE_LOGIN_PATH);
+    c_out = boost::make_shared<ThriftClient>(acct, conn, LINE_TALK_URL LINE_COMMAND_PATH);
 }
 
 PurpleLine::~PurpleLine() {
-    c_out->close();
+
 }
 
 const char *PurpleLine::list_icon(PurpleAccount *, PurpleBuddy *) {

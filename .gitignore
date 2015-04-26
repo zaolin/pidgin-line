@@ -3,3 +3,4 @@ thrift_line
 *.a
 libline.so
 .depend
+*.geany

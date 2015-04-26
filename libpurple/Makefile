@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -g -Wall -shared -fPIC \
+CXXFLAGS = -g -std=c++11 -Wall -shared -fPIC \
 	-DHAVE_INTTYPES_H -DHAVE_CONFIG_H -DPURPLE_PLUGINS \
 	`pkg-config --cflags purple thrift` -I./backports
 THRIFT = thrift
@@ -28,7 +28,7 @@ $(MAIN): $(OBJS) backports/libpurplebackports.a
 	$(CXX) $(CXXFLAGS) -Wl,-z,defs -o $(MAIN) $(OBJS) $(LIBS)
 
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 backports/libpurplebackports.a:
 	$(MAKE) -C backports

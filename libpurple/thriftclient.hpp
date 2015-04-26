@@ -16,15 +16,16 @@
 
 class ThriftClient : public line::TalkServiceClient {
 
-    std::string path;
     boost::shared_ptr<LineHttpTransport> http;
 
 public:
 
     ThriftClient(PurpleAccount *acct, PurpleConnection *conn, std::string path);
 
-    void set_path(std::string path);
-    void set_auto_reconnect(bool auto_reconnect);
+    void set_url(std::string url);
+    void set_timeout(int timeout);
+    void set_connection_limit(int limit);
+
     void send(std::function<void()> callback);
 
     int status_code();

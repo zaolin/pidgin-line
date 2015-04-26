@@ -6,25 +6,29 @@
 #include "constants.hpp"
 #include "thriftclient.hpp"
 
-ThriftClient::ThriftClient(PurpleAccount *acct, PurpleConnection *conn, std::string path)
+ThriftClient::ThriftClient(PurpleAccount *acct, PurpleConnection *conn, std::string url)
     : line::TalkServiceClient(
         boost::make_shared<apache::thrift::protocol::TCompactProtocol>(
-            boost::make_shared<LineHttpTransport>(acct, conn, LINE_THRIFT_SERVER, 443, true))),
-    path(path)
+            boost::make_shared<LineHttpTransport>(acct, conn, url)))
 {
     http = boost::static_pointer_cast<LineHttpTransport>(getInputProtocol()->getTransport());
 }
 
-void ThriftClient::set_path(std::string path) {
-    this->path = path;
+void ThriftClient::set_url(std::string url) {
+    http->set_url(url);
 }
 
-void ThriftClient::set_auto_reconnect(bool auto_reconnect) {
-    http->set_auto_reconnect(auto_reconnect);
+void ThriftClient::set_timeout(int timeout) {
+    http->set_timeout(timeout);
+}
+
+void ThriftClient::set_connection_limit(int limit) {
+    http->set_connection_limit(limit);
 }
 
 void ThriftClient::send(std::function<void()> callback) {
-    http->request("POST", path, "application/x-thrift", callback);
+    http->open();
+    http->request(callback);
 }
 
 int ThriftClient::status_code() {

@@ -62,6 +62,8 @@ void PurpleLine::get_auth_token() {
     if (ui_name_p)
         ui_name = (char *)ui_name_p;
 
+    c_out->set_url(LINE_TALK_URL LINE_LOGIN_PATH);
+
     c_out->send_loginWithIdentityCredentialForCertificate(
         line::IdentityProvider::LINE,
         purple_account_get_username(acct),
@@ -126,8 +128,7 @@ void PurpleLine::set_auth_token(std::string auth_token) {
 
     // Re-open output client to update persistent headers
     c_out->close();
-    c_out->set_auto_reconnect(true);
-    c_out->set_path(LINE_COMMAND_PATH);
+    c_out->set_url(LINE_TALK_URL LINE_COMMAND_PATH);
 }
 
 void PurpleLine::get_last_op_revision() {
