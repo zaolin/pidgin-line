@@ -72,9 +72,6 @@ class PurpleLine {
 
     HTTPClient http;
 
-    // Remove if libpurple HTTP ever gets support for binary request bodies
-    LineHttpTransport os_http;
-
     friend class Poller;
     Poller poller;
 

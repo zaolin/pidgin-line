@@ -44,13 +44,11 @@ PurpleLine::PurpleLine(PurpleConnection *conn, PurpleAccount *acct) :
     conn(conn),
     acct(acct),
     http(acct, conn),
-    os_http(acct, conn, LINE_OS_SERVER, 443, false),
     poller(*this),
     pin_verifier(*this),
     next_purple_id(1)
 {
     c_out = boost::make_shared<ThriftClient>(acct, conn, LINE_LOGIN_PATH);
-    os_http.set_auto_reconnect(true);
 }
 
 PurpleLine::~PurpleLine() {
@@ -405,16 +403,15 @@ void PurpleLine::upload_media(std::string message_id, std::string type, std::str
 
     std::string content_type = std::string("multipart/form-data; boundary=") + boundary;
 
-    os_http.write_virt((const uint8_t *)body.str().c_str(), body.tellp());
-
-    os_http.request("POST", "/talk/m/upload.nhn", content_type, [this]() {
-        if (os_http.status_code() != 201) {
-            purple_debug_warning(
-                "line",
-                "Couldn't upload message media. Status: %d\n",
-                os_http.status_code());
-        }
-    });
+    http.request(LINE_OS_URL "/talk/m/upload.nhn", HTTPFlag::AUTH, content_type, body.str(),
+        [this](int status_code, const gchar *data, gsize len) {
+            if (status_code != 201) {
+                purple_debug_warning(
+                    "line",
+                    "Couldn't upload message media. Status: %d\n",
+                    status_code);
+            }
+        });
 }
 
 void PurpleLine::push_recent_message(std::string id) {
