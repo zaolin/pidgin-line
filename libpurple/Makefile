@@ -1,10 +1,10 @@
 CXX = g++
 CXXFLAGS = -g -Wall -shared -fPIC \
 	-DHAVE_INTTYPES_H -DHAVE_CONFIG_H -DPURPLE_PLUGINS \
-	`pkg-config --cflags purple thrift`
+	`pkg-config --cflags purple thrift` -I./backports
 THRIFT = thrift
 
-LIBS = `pkg-config --libs purple thrift`
+LIBS = `pkg-config --libs purple thrift` -L./backports -lpurplebackports -lz
 
 PURPLE_PLUGIN_DIR:=$(shell pkg-config --variable=plugindir purple)
 PURPLE_DATA_ROOT_DIR:=$(shell pkg-config --variable=datarootdir purple)
@@ -24,11 +24,14 @@ OBJS = $(SRCS:.cpp=.o)
 
 all: $(MAIN)
 
-$(MAIN): $(OBJS)
+$(MAIN): $(OBJS) backports/libpurplebackports.a
 	$(CXX) $(CXXFLAGS) -Wl,-z,defs -o $(MAIN) $(OBJS) $(LIBS)
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+
+backports/libpurplebackports.a:
+	$(MAKE) -C backports
 
 thrift_line: line.thrift
 	mkdir -p thrift_line
@@ -39,6 +42,7 @@ clean:
 	rm -f $(MAIN)
 	rm -f *.o
 	rm -rf thrift_line
+	$(MAKE) -C backports clean
 
 .PHONY: user-install
 user-install: all

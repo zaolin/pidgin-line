@@ -147,9 +147,9 @@ PurpleCmdRet PurpleLine::cmd_open(PurpleConversation *conv,
     PurpleConversationType ctype = purple_conversation_get_type(conv);
     std::string cname = std::string(purple_conversation_get_name(conv));
 
-    http.request(url, HTTPFlag::AUTH | HTTPFlag::LARGE,
+    http.request(url, HTTPFlag::AUTH,
         [this, path, token, ctype, cname]
-        (int status, const guchar *data, gsize len)
+        (int status, const gchar *data, gsize len)
         {
             if (status == 200 && data && len > 0) {
                 g_file_set_contents(path.c_str(), (const char *)data, len, nullptr);

@@ -159,7 +159,7 @@ void PurpleLine::get_profile() {
             std::string pic_path = profile.picturePath.substr(1) + "/preview";
             //if (icon_path != purple_account_get_string(acct, "icon_path", "")) {
                 http.request(LINE_OS_URL + pic_path, HTTPFlag::AUTH,
-                    [this](int status, const guchar *data, gsize len)
+                    [this](int status, const gchar *data, gsize len)
                 {
                     if (status != 200 || !data)
                         return;

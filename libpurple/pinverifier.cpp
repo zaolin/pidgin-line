@@ -9,7 +9,7 @@
 
 PINVerifier::PINVerifier(PurpleLine &parent) :
     parent(parent),
-    http(parent.acct)
+    http(parent.acct, parent.conn)
 {
 }
 
@@ -52,8 +52,13 @@ void PINVerifier::verify(
     parent.set_auth_token(verifier);
 
     http.request(LINE_VERIFICATION_URL, HTTPFlag::AUTH,
-        [this, verifier, success](int status, const guchar *data, gsize len)
+        [this, verifier, success](int status, const gchar *data, gsize len)
     {
+        if (status == 0) {
+            error("Account verification failed. Timeout.");
+            return;
+        }
+
         if (!data || status != 200) {
             std::stringstream ss;
             ss << "Account verification failed. Status: " << status;

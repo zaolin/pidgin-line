@@ -6,18 +6,23 @@
 #include "constants.hpp"
 #include "httpclient.hpp"
 
-HTTPClient::HTTPClient(PurpleAccount *acct) :
+HTTPClient::HTTPClient(PurpleAccount *acct, PurpleConnection *conn) :
     acct(acct),
-    in_flight(0)
+    conn(conn),
+    connection_set(purple_http_connection_set_new()),
+    keepalive_pool(purple_http_keepalive_pool_new())
 {
+    purple_http_keepalive_pool_set_limit_per_host(keepalive_pool, 4);
 }
 
 HTTPClient::~HTTPClient() {
-    for (Request *r: request_queue) {
-        if (r->handle)
-            purple_util_fetch_url_cancel(r->handle);
-    }
+    purple_http_connection_set_destroy(connection_set);
+    purple_http_keepalive_pool_unref(keepalive_pool);
 }
+
+struct Request {
+    HTTPClient::CompleteFunc callback;
+};
 
 void HTTPClient::request(std::string url, HTTPClient::CompleteFunc callback) {
     request(url, HTTPFlag::NONE, callback);
@@ -32,122 +37,42 @@ void HTTPClient::request(std::string url, HTTPFlag flags,
     HTTPClient::CompleteFunc callback)
 {
     Request *req = new Request();
-    req->client = this;
-    req->url = url;
-    req->content_type = content_type;
-    req->body = body;
-    req->flags = flags;
     req->callback = callback;
-    req->handle = nullptr;
 
-    request_queue.push_back(req);
+    PurpleHttpRequest *preq = purple_http_request_new(url.c_str());
+    purple_http_request_set_keepalive_pool(preq, keepalive_pool);
 
-    execute_next();
-}
+    // TODO: make configurable
+    purple_http_request_set_timeout(preq, 3 * 60);
 
-void HTTPClient::execute_next() {
-    while (in_flight < MAX_IN_FLIGHT && request_queue.size() > 0) {
-        Request *req = request_queue.front();
-        request_queue.pop_front();
+    purple_http_request_header_set(preq, "User-Agent", LINE_USER_AGENT);
 
-        std::stringstream ss;
-
-        char *host, *path;
-        int port;
-
-        purple_url_parse(req->url.c_str(), &host, &port, &path, nullptr, nullptr);
-
-        ss
-            << (req->body.size() ? "POST" : "GET") << " /" << path << " HTTP/1.1" "\r\n"
-            << "Connection: close\r\n"
-            << "Host: " << host << ":" << port << "\r\n"
-            << "User-Agent: " << LINE_USER_AGENT << "\r\n";
-
-        free(host);
-        free(path);
-
-        if (req->flags & HTTPFlag::AUTH) {
-            ss
-                << "X-Line-Application: " << LINE_APPLICATION << "\r\n"
-                << "X-Line-Access: "
-                    << purple_account_get_string(acct, LINE_ACCOUNT_AUTH_TOKEN, "") << "\r\n";
-        }
-
-        if (req->content_type.size())
-            ss << "Content-Type: " << req->content_type << "\r\n";
-
-        if (req->body.size())
-            ss << "Content-Length: " << req->body.size() << "\r\n";
-
-        ss
-            << "\r\n"
-            << req->body;
-
-        in_flight++;
-
-        req->handle = purple_util_fetch_url_request_len_with_account(
-            acct,
-            req->url.c_str(),
-            TRUE,
-            LINE_USER_AGENT,
-            TRUE,
-            ss.str().c_str(),
-            TRUE,
-            (req->flags & HTTPFlag::LARGE) ? (100 * 1024 * 1024) : -1,
-            purple_cb,
-            (gpointer)req);
-    }
-}
-
-void HTTPClient::parse_response(const char *res, int &status, const guchar *&body) {
-    // libpurple guarantees that responses are null terminated even if they're binary, so string
-    // functions are safe to use.
-
-    const char *status_end = strstr(res, "\r\n");
-    if (!status_end)
-        return;
-
-    const char *header_end = strstr(res, "\r\n\r\n");
-    if (!header_end)
-        return;
-
-    std::stringstream ss(std::string(res, status_end - res));
-    ss.ignore(255, ' ');
-
-    ss >> status;
-
-    body = (const guchar *)(header_end + 4);
-}
-
-void HTTPClient::complete(HTTPClient::Request *req,
-    const gchar *url_text, gsize len, const gchar *error_message)
-{
-    if (!url_text || error_message) {
-        purple_debug_error("util", "HTTP error: %s\n", error_message);
-        req->callback(-1, nullptr, 0);
-    } else {
-        // HTTP/1.1 200 OK
-
-        int status;
-        const guchar *body = nullptr;
-
-        parse_response(url_text, status, body);
-
-        req->callback(status, body, len);
+    if (flags & HTTPFlag::AUTH) {
+        purple_http_request_header_set(preq, "X-Line-Application", LINE_APPLICATION);
+        purple_http_request_header_set(preq, "X-Line-Access",
+            purple_account_get_string(acct, LINE_ACCOUNT_AUTH_TOKEN, ""));
     }
 
-    request_queue.remove(req);
-    delete req;
+    if (content_type.size()) {
+        purple_http_request_set_method(preq, "POST");
+        purple_http_request_header_set(preq, "Content-Type", content_type.c_str());
+        purple_http_request_set_contents(preq, body.c_str(), body.size());
+    }
 
-    in_flight--;
+    PurpleHttpConnection *hconn = purple_http_request(conn, preq, HTTPClient::purple_cb, req);
 
-    execute_next();
+    purple_http_connection_set_add(connection_set, hconn);
 }
 
-void HTTPClient::purple_cb(PurpleUtilFetchUrlData *url_data, gpointer user_data,
-    const gchar *url_text, gsize len, const gchar *error_message)
+void HTTPClient::purple_cb(PurpleHttpConnection *http_conn, PurpleHttpResponse *response,
+    gpointer user_data)
 {
     Request *req = (Request *)user_data;
 
-    req->client->complete(req, url_text, len, error_message);
+    req->callback(
+        purple_http_response_get_code(response),
+        purple_http_response_get_data(response, nullptr),
+        purple_http_response_get_data_len(response));
+
+    delete req;
 }

@@ -20,6 +20,7 @@ How to install
 Make sure you have the required prerequisites:
 
 * libpurple - probably available from your package manager
+* zlib - probably already installed
 * Apache Thrift compiler and C++ library - v0.9.1 should be stable. The Git version and OS packages
   are sometimes a bit iffy. Compiling by hand is your best bet.
 

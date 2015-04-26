@@ -124,13 +124,13 @@ void PurpleLine::write_message(line::Message &msg, bool replay) {
                         && purple_conv_custom_smiley_add(conv, id.c_str(), "id", id.c_str(), TRUE))
                     {
                         http.request(get_sticker_url(msg),
-                            [this, id, conv](int status, const guchar *data, gsize len)
+                            [this, id, conv](int status, const gchar *data, gsize len)
                             {
                                 if (status == 200 && data && len > 0) {
                                     purple_conv_custom_smiley_write(
                                         conv,
                                         id.c_str(),
-                                        data,
+                                        (const guchar *)data,
                                         len);
                                 } else {
                                     purple_debug_warning(
@@ -180,14 +180,14 @@ void PurpleLine::write_message(line::Message &msg, bool replay) {
                         ? msg.contentMetadata["PREVIEW_URL"]
                         : std::string(LINE_OS_URL) + "os/m/" + msg.id + "/preview";
 
-                    http.request(preview_url, HTTPFlag::AUTH | HTTPFlag::LARGE,
-                        [this, id, conv](int status, const guchar *data, gsize len)
+                    http.request(preview_url, HTTPFlag::AUTH,
+                        [this, id, conv](int status, const gchar *data, gsize len)
                         {
                             if (status == 200 && data && len > 0) {
                                 purple_conv_custom_smiley_write(
                                     conv,
                                     id.c_str(),
-                                    data,
+                                    (const guchar *)data,
                                     len);
                             } else {
                                 purple_debug_warning(

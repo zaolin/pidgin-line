@@ -43,7 +43,7 @@ std::string url_encode(std::string const &str) {
 PurpleLine::PurpleLine(PurpleConnection *conn, PurpleAccount *acct) :
     conn(conn),
     acct(acct),
-    http(acct),
+    http(acct, conn),
     os_http(acct, conn, LINE_OS_SERVER, 443, false),
     poller(*this),
     pin_verifier(*this),

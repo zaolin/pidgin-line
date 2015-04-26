@@ -8,6 +8,8 @@
 #include "purpleline.hpp"
 #include "wrapper.hpp"
 
+#include "backports.h"
+
 static void line_plugin_destroy(PurplePlugin *plugin);
 static void line_plugin_init(PurplePlugin *plugin);
 
@@ -69,9 +71,13 @@ static void init_prpl_info(PurplePluginProtocolInfo &i) {
 
 static void line_plugin_destroy(PurplePlugin *plugin) {
     purple_debug_info("line", "shutting down\n");
+
+    purple_backports_uninit();
 }
 
 static void line_plugin_init(PurplePlugin *plugin) {
+    purple_backports_init();
+
     init_info(info);
     init_prpl_info(prpl_info);
 
