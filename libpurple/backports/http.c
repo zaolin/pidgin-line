@@ -75,6 +75,9 @@ struct _PurpleHttpRequest
 	PurpleHttpCookieJar *cookie_jar;
 	PurpleHttpKeepalivePool *keepalive_pool;
 
+	PurpleHttpBeforeSendCallback before_send_callback;
+	gpointer before_send_callback_user_data;
+
 	gchar *contents;
 	int contents_length;
 	PurpleHttpContentReader contents_reader;
@@ -1441,6 +1444,16 @@ _purple_http_connected(PurpleSocket *ps, const gchar *error, gpointer _hc)
 		return;
 	}
 
+	if (hc->request->before_send_callback) {
+		guint use_count = 0;
+
+		if (hs != NULL)
+			use_count = hs->use_count;
+
+		hc->request->before_send_callback(hc, use_count,
+			hc->request->before_send_callback_user_data);
+	}
+
 	purple_socket_watch(ps, PURPLE_INPUT_WRITE, _purple_http_send, hc);
 }
 
@@ -2568,6 +2581,15 @@ purple_http_request_get_keepalive_pool(PurpleHttpRequest *request)
 	g_return_val_if_fail(request != NULL, FALSE);
 
 	return request->keepalive_pool;
+}
+
+void purple_http_request_set_before_send_callback(PurpleHttpRequest *request,
+	PurpleHttpBeforeSendCallback callback, gpointer user_data)
+{
+	g_return_if_fail(request != NULL);
+
+	request->before_send_callback = callback;
+	request->before_send_callback_user_data = user_data;
 }
 
 void purple_http_request_set_contents(PurpleHttpRequest *request,

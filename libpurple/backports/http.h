@@ -92,6 +92,14 @@ typedef void (*PurpleHttpCallback)(PurpleHttpConnection *http_conn,
 	PurpleHttpResponse *response, gpointer user_data);
 
 /**
+ * PurpleHttpBeforeSendCallback:
+ *
+ * A callback called when a request is about to be sent.
+ */
+typedef void (*PurpleHttpBeforeSendCallback)(PurpleHttpConnection *http_conn,
+	guint use_count, gpointer user_data);
+
+/**
  * PurpleHttpContentReaderCb:
  *
  * An callback called after storing data requested by PurpleHttpContentReader.
@@ -588,6 +596,21 @@ purple_http_request_set_keepalive_pool(PurpleHttpRequest *request,
  */
 PurpleHttpKeepalivePool *
 purple_http_request_get_keepalive_pool(PurpleHttpRequest *request);
+
+/**
+ * purple_http_conn_set_before_send_callback:
+ * @http_conn:              The HTTP connection.
+ * @callback: (scope call): The callback.
+ * @user_data:              The user data to pass to the callback function.
+ *
+ * Sets a callback to be called when the request is about to be sent. You can
+ * modify the headers and content of the request in the callback. The
+ * use_count callback parameter specifies the index of this request in a
+ * Keep-Alive connection. If a Keep-Alive connection is reconnected, this may
+ * be called multiple times for the same request.
+ */
+void purple_http_request_set_before_send_callback(PurpleHttpRequest *request,
+	PurpleHttpBeforeSendCallback callback, gpointer user_data);
 
 /**
  * purple_http_request_set_contents:
