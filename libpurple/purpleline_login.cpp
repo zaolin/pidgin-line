@@ -35,8 +35,6 @@ void PurpleLine::login_start() {
                 throw;
             }
 
-            set_auth_token(auth_token);
-
             poller.set_local_rev(local_rev);
 
             // Already got the last op revision, no need to call get_last_op_revision()
@@ -73,6 +71,8 @@ void PurpleLine::get_auth_token() {
         ui_name,
         certificate);
     c_out->send([this]() {
+        c_out->set_url(LINE_TALK_URL LINE_COMMAND_PATH);
+
         line::LoginResult result;
 
         try {
@@ -128,7 +128,6 @@ void PurpleLine::set_auth_token(std::string auth_token) {
 
     // Re-open output client to update persistent headers
     c_out->close();
-    c_out->set_url(LINE_TALK_URL LINE_COMMAND_PATH);
 }
 
 void PurpleLine::get_last_op_revision() {

@@ -12,7 +12,6 @@ Poller::Poller(PurpleLine &parent)
     client = boost::make_shared<ThriftClient>(parent.acct, parent.conn,
         LINE_TALK_URL LINE_POLL_PATH);
     client->set_timeout(5 * 60);
-    client->set_connection_limit(1);
 }
 
 Poller::~Poller() {

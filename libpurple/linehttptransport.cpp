@@ -14,7 +14,7 @@ LineHttpTransport::LineHttpTransport(PurpleAccount *acct, PurpleConnection *conn
     destroying(false),
     acct(acct),
     conn(conn),
-    connection_limit(2),
+    connection_limit(1),
     timeout(30),
     url(url),
     connection_set(nullptr),
@@ -95,53 +95,81 @@ void LineHttpTransport::write_virt(const uint8_t *buf, uint32_t len) {
     request_buf.sputn((const char *)buf, len);
 }
 
+void LineHttpTransport::before_send_cb(PurpleHttpConnection *http_conn, guint use_count,
+    gpointer user_data)
+{
+    RequestData *data = (RequestData *)user_data;
+
+    purple_debug_info("line", "before_send_cb %p %d\n", data->transport->keepalive_pool, use_count);
+
+    data->transport->before_send(purple_http_conn_get_request(http_conn), use_count == 1);
+}
+
+void LineHttpTransport::request_cb(PurpleHttpConnection *http_conn,
+    PurpleHttpResponse *response, gpointer user_data)
+{
+    RequestData *data = (RequestData *)user_data;
+
+    data->transport->handle_response(response, data->callback);
+
+    delete data;
+}
+
 void LineHttpTransport::request(std::function<void()> callback) {
-    Request *req = new Request();
-    req->transport = this;
-    req->callback = callback;
+    RequestData *data = new RequestData();
+    data->transport = this;
+    data->callback = callback;
 
-    PurpleHttpRequest *preq = purple_http_request_new(url.c_str());
-    purple_http_request_set_keepalive_pool(preq, keepalive_pool);
-    purple_http_request_set_timeout(preq, timeout);
+    PurpleHttpRequest *req = purple_http_request_new(url.c_str());
+    purple_http_request_set_keepalive_pool(req, keepalive_pool);
+    purple_http_request_set_timeout(req, timeout);
 
-    purple_http_request_set_method(preq, "POST");
+    purple_http_request_set_method(req, "POST");
 
-    purple_http_request_header_set(preq, "User-Agent", LINE_USER_AGENT);
-    purple_http_request_header_set(preq, "X-Line-Application", LINE_APPLICATION);
-    purple_http_request_header_set(preq, "Content-Type", "application/x-thrift");
-
-    const char *auth_token = purple_account_get_string(acct, LINE_ACCOUNT_AUTH_TOKEN, "");
-    if (auth_token)
-        purple_http_request_header_set(preq, "X-Line-Access", auth_token);
+    purple_http_request_set_before_send_callback(req, before_send_cb, data);
 
     std::string body = request_buf.str();
-    purple_http_request_set_contents(preq, body.c_str(), body.size());
+    purple_http_request_set_contents(req, body.c_str(), body.size());
 
     request_buf.str("");
 
-    PurpleHttpConnection *http_conn = purple_http_request(conn, preq,
-        LineHttpTransport::purple_cb, req);
+    PurpleHttpConnection *http_conn = purple_http_request(conn, req, request_cb, data);
 
     purple_http_connection_set_add(connection_set, http_conn);
-
-    // TODO: X-LS
 }
 
-void LineHttpTransport::purple_cb(PurpleHttpConnection *http_conn, PurpleHttpResponse *response,
-    gpointer user_data)
-{
-    Request *req = (Request *)user_data;
+void LineHttpTransport::before_send(PurpleHttpRequest *req, bool first_request) {
+    if (first_request) {
+        x_ls = "";
+    }
 
-    req->transport->handle_response(response, req);
+    if (x_ls.size()) {
+        purple_debug_info("line", "before_send: setting x-ls\n");
 
-    delete req;
+        purple_http_request_header_set(req, "X-LS", x_ls.c_str());
+    } else {
+        purple_debug_info("line", "before_send: setting headers\n");
+
+        purple_http_request_header_set(req, "x-ls", nullptr);
+
+        purple_http_request_header_set(req, "Content-Type", "application/x-thrift");
+
+        purple_http_request_header_set(req, "User-Agent", LINE_USER_AGENT);
+        purple_http_request_header_set(req, "X-Line-Application", LINE_APPLICATION);
+
+        const char *auth_token = purple_account_get_string(acct, LINE_ACCOUNT_AUTH_TOKEN, "");
+        if (auth_token)
+            purple_http_request_header_set(req, "X-Line-Access", auth_token);
+    }
 }
 
-void LineHttpTransport::handle_response(PurpleHttpResponse *response, Request *req) {
+void LineHttpTransport::handle_response(PurpleHttpResponse *res, std::function<void()> callback) {
     if (destroying)
         return;
 
-    status_code_ = purple_http_response_get_code(response);
+    status_code_ = purple_http_response_get_code(res);
+
+    purple_debug_info("line", "Response: %d\n", status_code_);
 
     if (status_code_ == 0) {
         // Timeout or connection error
@@ -161,12 +189,16 @@ void LineHttpTransport::handle_response(PurpleHttpResponse *response, Request *r
         return;
     }
 
+    const gchar *new_x_ls = purple_http_response_get_header(res, "X-LS");
+    if (new_x_ls)
+        x_ls = new_x_ls;
+
     response_buf.str(std::string(
-        purple_http_response_get_data(response, nullptr),
-        purple_http_response_get_data_len(response)));
+        purple_http_response_get_data(res, nullptr),
+        purple_http_response_get_data_len(res)));
 
     try {
-        req->callback();
+        callback();
     } catch (line::TalkException &err) {
         std::string msg = "LINE: TalkException: ";
         msg += err.reason;

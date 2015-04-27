@@ -17,7 +17,7 @@
 
 class LineHttpTransport : public apache::thrift::transport::TTransport {
 
-    struct Request {
+    struct RequestData {
         LineHttpTransport *transport;
         std::function<void()> callback;
     };
@@ -41,10 +41,13 @@ class LineHttpTransport : public apache::thrift::transport::TTransport {
     std::stringbuf response_buf;
     int status_code_;
 
-    static void purple_cb(PurpleHttpConnection *http_conn, PurpleHttpResponse *response,
+    static void before_send_cb(PurpleHttpConnection *http_conn, guint use_count,
+        gpointer user_data);
+    static void request_cb(PurpleHttpConnection *http_conn, PurpleHttpResponse *response,
         gpointer user_data);
 
-    void handle_response(PurpleHttpResponse *response, Request *req);
+    void before_send(PurpleHttpRequest *req, bool first_request);
+    void handle_response(PurpleHttpResponse *response, std::function<void()> callback);
 
 public:
 
