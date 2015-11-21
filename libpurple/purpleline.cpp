@@ -284,7 +284,7 @@ int PurpleLine::send_message(std::string to, const char *markup) {
             line::Message msg;
 
             msg.contentType = line::ContentType::NONE;
-            msg.from = profile.mid;
+            msg.from_ = profile.mid;
             msg.to = to;
             msg.text = markup_unescape(text);
 
@@ -294,8 +294,6 @@ int PurpleLine::send_message(std::string to, const char *markup) {
         }
 
         if (img_found) {
-            // Image test
-
             int image_id = std::stoi((char *)g_datalist_get_data(&attributes, "id"));
             g_datalist_clear(&attributes);
 
@@ -315,7 +313,7 @@ int PurpleLine::send_message(std::string to, const char *markup) {
             line::Message msg;
 
             msg.contentType = line::ContentType::IMAGE;
-            msg.from = profile.mid;
+            msg.from_ = profile.mid;
             msg.to = to;
 
             send_message(msg, [this, img_data](line::Message &msg_back) {
@@ -450,7 +448,7 @@ void PurpleLine::signal_blist_node_removed(PurpleBlistNode *node) {
 
     char *id_ptr = (char *)g_hash_table_lookup(components, "id");
     if (!id_ptr) {
-        purple_debug_warning("line", "Tried to remove a chat with no id.");
+        purple_debug_warning("line", "Tried to remove a chat with no id.\n");
         return;
     }
 
@@ -477,7 +475,7 @@ void PurpleLine::signal_blist_node_removed(PurpleBlistNode *node) {
             }
         });
     } else {
-        purple_debug_warning("line", "Tried to remove a chat with no type.");
+        purple_debug_warning("line", "Tried to remove a chat with no type.\n");
         return;
     }
 }
@@ -501,6 +499,10 @@ void PurpleLine::fetch_conversation_history(PurpleConversation *conv, int count,
     int64_t *end_seq_p = (int64_t *)purple_conversation_get_data(conv, "line-end-seq");
     if (end_seq_p)
         end_seq = *end_seq_p;
+
+    purple_debug_info("line",
+        "Fetching history: end_seq=%" G_GINT64_FORMAT " , count=%d, requested=%d\n",
+        end_seq, count, requested);
 
     if (end_seq != -1)
         c_out->send_getPreviousMessages(name, end_seq - 1, count);
@@ -600,6 +602,8 @@ void PurpleLine::fetch_conversation_history(PurpleConversation *conv, int count,
             delete end_seq_p;
 
         purple_conversation_set_data(conv, "line-end-seq", new int64_t(new_end_seq));
+
+        purple_debug_info("line", "History done: new_end_seq=%" G_GINT64_FORMAT "\n", new_end_seq);
     });
 }
 

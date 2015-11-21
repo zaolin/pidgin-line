@@ -14,8 +14,6 @@
 #include "poller.hpp"
 #include "pinverifier.hpp"
 
-#define LINEPRPL_ID "prpl-mvirkkunen-line"
-
 class ThriftClient;
 
 template <typename T>
@@ -163,6 +161,7 @@ private:
     void login_start();
 
     void get_auth_token();
+    std::string get_encrypted_credentials(line::RSAKey &key);
     void set_auth_token(std::string auth_token);
     void get_last_op_revision();
     void get_profile();

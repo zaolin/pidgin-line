@@ -6,17 +6,21 @@ ifdef THRIFT_STATIC
 	THRIFT_LIBS = -L$(THRIFT_STATIC_DIR)/lib/cpp/.libs -Wl,-Bstatic -lthrift -Wl,-Bdynamic
 	THRIFT_DEP = $(THRIFT)
 else
-	THRIFT = thrift
+	THRIFT ?= thrift
 	THRIFT_CXXFLAGS = `pkg-config --cflags thrift`
 	THRIFT_LIBS = `pkg-config --libs thrift`
 endif
 
-CXX = g++
-CXXFLAGS = -g -std=c++11 -Wall -shared -fPIC \
+CXX ?= g++
+CXXFLAGS = -g -Wall -shared -fPIC \
 	-DHAVE_INTTYPES_H -DHAVE_CONFIG_H -DPURPLE_PLUGINS \
-	`pkg-config --cflags purple` -I./backports $(THRIFT_CXXFLAGS)
+	`pkg-config --cflags purple` `libgcrypt-config --cflags` `gpg-error-config --cflags` \
+	-I./backports \
+	$(THRIFT_CXXFLAGS)
 
-LIBS = `pkg-config --libs purple zlib` -L./backports -lpurplebackports $(THRIFT_LIBS)
+LIBS = `pkg-config --libs purple zlib` `libgcrypt-config --libs` `gpg-error-config --libs` \
+	-L./backports -lpurplebackports \
+	$(THRIFT_LIBS)
 
 PURPLE_PLUGIN_DIR:=$(shell pkg-config --variable=plugindir purple)
 PURPLE_DATA_ROOT_DIR:=$(shell pkg-config --variable=datarootdir purple)
@@ -41,14 +45,18 @@ $(MAIN): $(OBJS) backports/libpurplebackports.a $(THRIFT_DEP)
 	strip $(MAIN)
 
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
 
 backports/libpurplebackports.a:
 	$(MAKE) -C backports
 
-thrift_line: line.thrift $(THRIFT_DEP)
+# The Thrift generator generates three files at once, this file shall represent them.
+thrift_line/TalkService.cpp: line.thrift $(THRIFT_DEP) $@
 	mkdir -p thrift_line
 	$(THRIFT) --gen cpp -out thrift_line line.thrift
+
+# If the representative file exists, the others should too.
+thrift_line/line_types.cpp thrift_line/line_constants.cpp: thrift_line/TalkService.cpp
 
 $(THRIFT):
 	mkdir -p $(THRIFT_STATIC_DIR)
@@ -67,6 +75,7 @@ $(THRIFT):
 
 .PHONY: clean
 clean:
+	rm -f .depend
 	rm -f $(MAIN)
 	rm -f *.o
 	rm -rf thrift_line
@@ -99,18 +108,11 @@ uninstall:
 
 depend: .depend
 
-.depend: thrift_line $(REAL_SRCS)
-	rm -f .depend
-	$(CXX) $(CXXFLAGS) -MM $(REAL_SRCS) >>.depend
+.depend: $(SRCS)
+	$(CXX) $(CXXFLAGS) -MM $(REAL_SRCS) >.depend
 
 ifneq ($(MAKECMDGOALS),clean)
-ifneq ($(MAKECMDGOALS),user-install)
-ifneq ($(MAKECMDGOALS),user-uninstall)
-ifneq ($(MAKECMDGOALS),install)
 ifneq ($(MAKECMDGOALS),uninstall)
 -include .depend
-endif
-endif
-endif
 endif
 endif
